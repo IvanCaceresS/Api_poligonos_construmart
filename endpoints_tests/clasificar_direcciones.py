@@ -8,7 +8,7 @@ data = {
 }
 
 # Hacer la solicitud POST a la API
-response = requests.post('http://192.168.56.1:5000/clasificar_direcciones', json=data)
+response = requests.post('http://192.168.0.7:5000/clasificar_direcciones', json=data)
 
 # Mostrar la respuesta
 print(response.json())

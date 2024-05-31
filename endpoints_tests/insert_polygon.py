@@ -12,7 +12,7 @@ data = {
 }
 
 # Hacer la solicitud POST a la API
-response = requests.post('http://127.0.0.1:5000/insert_polygon', json=data)
+response = requests.post('http://192.168.0.7:5000/insert_polygon', json=data)
 
 # Mostrar la respuesta
 print(response.json())

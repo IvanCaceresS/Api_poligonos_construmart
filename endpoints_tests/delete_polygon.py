@@ -6,7 +6,7 @@ data = {
 }
 
 # Hacer la solicitud DELETE a la API
-response = requests.delete('http://127.0.0.1:5000/delete_polygon', json=data)
+response = requests.delete('http://192.168.0.7:5000/delete_polygon', json=data)
 
 # Mostrar la respuesta
 print(response.json())
