@@ -98,34 +98,28 @@ def replace_polygon():
 @app.route('/clasificar_direcciones', methods=['POST'])
 def clasificar_direcciones():
     data = request.get_json()
-    file_path = data.get('file_path')
+    coordinates = data.get('coordinates')
+    
+    if not coordinates:
+        return jsonify({"error": "No coordinates provided"}), 400
 
     try:
-        df = pd.read_excel(file_path)
-
-        if 'Latitud' not in df.columns or 'Longitud' not in df.columns:
-            raise ValueError("Las columnas 'Latitud' y 'Longitud' no se encontraron en el archivo seleccionado.")
-
         conn = conectar_a_base_de_datos()
-
         poligonos = []
+
         with conn.cursor() as cursor:
-            for lat, lon in zip(df['Latitud'], df['Longitud']):
-                if lat == 'No encontrado' or lon == 'No encontrado':
-                    poligonos.append('No clasificado')
-                    continue
+            for coord in coordinates:
+                lat = coord['lat']
+                lon = coord['lon']
                 cursor.execute("""
                 SELECT nombre FROM poligonos
                 WHERE ST_Intersects(geometria, ST_SetSRID(ST_MakePoint(%s, %s), 4326));
                 """, (lon, lat))
                 result = cursor.fetchone()
                 poligonos.append(result[0] if result else "No clasificado")
-        
-        df['Polígono'] = poligonos
-        export_path = 'resultados_clasificacion.xlsx'
-        df.to_excel(export_path, index=False)
+
         conn.close()
-        return jsonify({"message": "Clasificación de direcciones completada", "file_path": export_path}), 200
+        return jsonify({"classification": poligonos}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
