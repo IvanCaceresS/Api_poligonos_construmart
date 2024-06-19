@@ -86,24 +86,26 @@ def obtener_partes_nombre(nombre):
 def insert_polygon():
     data = request.get_json()
     geojson_data = data.get('geojson_data')
-    nombre_del_multi_polygon = data.get('nombre').lower()
+    nombre_del_multi_polygon = data.get('nombre')
 
     if not geojson_data or not nombre_del_multi_polygon:
         return jsonify({"error": "Faltan datos necesarios"}), 400
     
+    nombre_del_multi_polygon = nombre_del_multi_polygon.lower()
+
     if not validar_nombre(nombre_del_multi_polygon):
-        return jsonify({"error": " [El nombre del poligono no cumple con la estructura requerida [Nombre del poligono - #######]"}), 400
+        return jsonify({"error": "El nombre del polígono no cumple con la estructura requerida [Nombre del polígono - #######]"}), 400
 
     nombre_parte, codigo_parte = obtener_partes_nombre(nombre_del_multi_polygon)
     if not nombre_parte or not codigo_parte:
-        return jsonify({"error": "El nombre del poligono no cumple con la estructura requerida [Nombre del poligono - #######]"}), 400
+        return jsonify({"error": "El nombre del polígono no cumple con la estructura requerida [Nombre del polígono - #######]"}), 400
 
     if nombre_existe(nombre_del_multi_polygon):
-        return jsonify({"error": f"El nombre del poligono '{nombre_del_multi_polygon}' ya existe"}), 400
+        return jsonify({"error": f"El nombre del polígono '{nombre_del_multi_polygon}' ya existe"}), 400
 
     parte_existente = partes_nombre_existen(nombre_parte, codigo_parte)
     if parte_existente:
-        return jsonify({"error": f"El nombre del poligono o el codigo '{parte_existente}' ya existen"}), 400
+        return jsonify({"error": f"El nombre del polígono o el código '{parte_existente}' ya existen"}), 400
 
     # Validar que geojson_data tenga el formato esperado
     if 'features' not in geojson_data or not isinstance(geojson_data['features'], list):
@@ -246,6 +248,27 @@ def clasificar_direcciones():
     finally:
         if conn:
             conn.close()
+
+@app.route('/get_polygons', methods=['GET'])
+def get_polygons():
+    try:
+        conn = conectar_a_base_de_datos()
+        cursor = conn.cursor()
+        cursor.execute("SELECT nombre FROM poligonos;")
+        resultados = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if not resultados:
+            return jsonify({"poligonos": [], "message": "No hay polígonos en la base de datos"}), 200
+
+        nombres_poligonos = [resultado[0] for resultado in resultados]
+
+        return jsonify({"poligonos": nombres_poligonos}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

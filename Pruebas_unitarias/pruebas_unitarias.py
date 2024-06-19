@@ -23,7 +23,7 @@ def cargar_geojson(file_path):
         print(f"Error: El archivo {file_path} no es un GeoJSON válido.")
         return None
 
-def enviar_solicitud(api_url, endpoint, method, data):
+def enviar_solicitud(api_url, endpoint, method, data=None):
     url = f"{api_url}/{endpoint}"
     try:
         if method == 'POST':
@@ -32,6 +32,8 @@ def enviar_solicitud(api_url, endpoint, method, data):
             response = requests.put(url, json=data)
         elif method == 'DELETE':
             response = requests.delete(url, json=data)
+        elif method == 'GET':
+            response = requests.get(url)
         else:
             raise ValueError(f"Método HTTP no soportado: {method}")
 
@@ -50,7 +52,7 @@ def enviar_solicitud(api_url, endpoint, method, data):
         print(f"Error en la solicitud a la API: {e}")
         return None
 
-def probar_api(descripcion, endpoint, method, data):
+def probar_api(descripcion, endpoint, method, data=None):
     print(f"\n{descripcion}...")
     respuesta = enviar_solicitud(API_URL, endpoint, method, data)
     if respuesta:
@@ -106,9 +108,12 @@ def probar_actualizar_nombre_poligono():
 
     probar_api("Probando actualización de nombre de polígono", 'update_polygon_name', 'PUT', data)
 
+def probar_get_polygons():
+    probar_api("Probando obtención de nombres de polígonos", 'get_polygons', 'GET')
+
 def main():
     print("-"*50)
-    #probar_insert_polygon()
+    probar_insert_polygon()
     print("-"*50)
     probar_clasificar_direcciones()
     print("-"*50)
@@ -117,6 +122,8 @@ def main():
     probar_actualizar_nombre_poligono()
     print("-"*50)
     probar_delete_polygon(NUEVO_NOMBRE_POLIGONO)
+    print("-"*50)
+    probar_get_polygons()
     print("-"*50)
 
 if __name__ == '__main__':
