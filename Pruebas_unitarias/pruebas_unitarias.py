@@ -107,11 +107,17 @@ def probar_actualizar_nombre_poligono():
     probar_api("Probando actualización de nombre de polígono", 'update_polygon_name', 'PUT', data)
 
 def main():
-    probar_insert_polygon()
+    print("-"*50)
+    #probar_insert_polygon()
+    print("-"*50)
     probar_clasificar_direcciones()
+    print("-"*50)
     probar_replace_polygon()
+    print("-"*50)
     probar_actualizar_nombre_poligono()
+    print("-"*50)
     probar_delete_polygon(NUEVO_NOMBRE_POLIGONO)
+    print("-"*50)
 
 if __name__ == '__main__':
     main()
