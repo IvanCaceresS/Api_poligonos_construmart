@@ -239,7 +239,16 @@ def clasificar_direcciones():
                 WHERE ST_Intersects(geometria, ST_SetSRID(ST_MakePoint(%s, %s), 4326));
                 """, (lon, lat))
                 result = cursor.fetchone()
-                poligonos.append(result[0] if result else "No clasificado")
+                if result:
+                    nombre_completo = result[0]
+                    partes_nombre = nombre_completo.split(' - ')
+                    if len(partes_nombre) == 2:
+                        glosa, codigo_postal = partes_nombre
+                        poligonos.append({"glosa": glosa.strip(), "codigo_postal": codigo_postal.strip()})
+                    else:
+                        poligonos.append({"glosa": "Desconocido", "codigo_postal": "Desconocido"})
+                else:
+                    poligonos.append({"glosa": "No clasificado", "codigo_postal": "No clasificado"})
 
         return jsonify({"classification": poligonos}), 200
 
@@ -248,6 +257,7 @@ def clasificar_direcciones():
     finally:
         if conn:
             conn.close()
+
 
 @app.route('/get_polygons', methods=['GET'])
 def get_polygons():
