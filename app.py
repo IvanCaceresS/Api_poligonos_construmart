@@ -42,84 +42,57 @@ def execute_query(query, params):
         if conn:
             conn.close()
 
-def validar_nombre(nombre):
-    patron = re.compile(r"^[\w\sáéíóúÁÉÍÓÚñÑüÜ]+ - \d{7}$")
-    return patron.match(nombre) is not None
+def validar_glosa(glosa):
+    return glosa is not None and glosa.strip() != ""
 
-def nombre_existe(nombre):
+def validar_codigo_postal(codigo_postal):
+    patron = re.compile(r"^\d{7}$")
+    return patron.match(str(codigo_postal)) is not None
+
+def codigo_postal_existe(codigo_postal):
     conn = None
     try:
         conn = conectar_a_base_de_datos()
         cursor = conn.cursor()
-        cursor.execute("SELECT nombre FROM poligonos WHERE LOWER(nombre) = LOWER(%s);", (nombre,))
+        cursor.execute("SELECT codigo_postal FROM poligonos WHERE codigo_postal = %s;", (str(codigo_postal),))
         existe = cursor.fetchone()
         cursor.close()
         return existe[0] if existe else None
     except Exception as e:
-        raise Exception(f"Error al verificar existencia del nombre: {str(e)}")
+        raise Exception(f"Error al verificar existencia del código postal: {str(e)}")
     finally:
         if conn:
             conn.close()
-
-def partes_nombre_existen(nombre_parte, codigo_parte):
-    conn = None
-    try:
-        conn = conectar_a_base_de_datos()
-        cursor = conn.cursor()
-        cursor.execute("""SELECT nombre FROM poligonos WHERE LOWER(SPLIT_PART(nombre, ' - ', 1)) = LOWER(%s) OR SPLIT_PART(nombre, ' - ', 2) = %s;""", (nombre_parte, codigo_parte))
-        existe = cursor.fetchone()
-        cursor.close()
-        return existe[0] if existe else None
-    except Exception as e:
-        raise Exception(f"Error al verificar existencia de partes del nombre: {str(e)}")
-    finally:
-        if conn:
-            conn.close()
-
-def obtener_partes_nombre(nombre):
-    partes = nombre.rsplit(' - ', 1)
-    if len(partes) != 2:
-        return None, None
-    return partes[0].strip(), partes[1].strip()
 
 @app.route('/insert_polygon', methods=['POST'])
 def insert_polygon():
     data = request.get_json()
     geojson_data = data.get('geojson_data')
-    nombre_del_multi_polygon = data.get('nombre')
+    glosa = data.get('glosa')
+    codigo_postal = data.get('codigo_postal')
 
-    if not geojson_data or not nombre_del_multi_polygon:
+    if not geojson_data or not glosa or not codigo_postal:
         return jsonify({"error": "Faltan datos necesarios"}), 400
-    
-    nombre_del_multi_polygon = nombre_del_multi_polygon.lower()
 
-    if not validar_nombre(nombre_del_multi_polygon):
-        return jsonify({"error": "El nombre del polígono no cumple con la estructura requerida [Nombre del polígono - #######]"}), 400
+    if not validar_glosa(glosa) or not validar_codigo_postal(codigo_postal):
+        return jsonify({"error": "La glosa no puede estar vacía y el código postal debe ser numérico de 7 dígitos"}), 400
 
-    nombre_parte, codigo_parte = obtener_partes_nombre(nombre_del_multi_polygon)
-    if not nombre_parte or not codigo_parte:
-        return jsonify({"error": "El nombre del polígono no cumple con la estructura requerida [Nombre del polígono - #######]"}), 400
-
-    if nombre_existe(nombre_del_multi_polygon):
-        return jsonify({"error": f"El nombre del polígono '{nombre_del_multi_polygon}' ya existe"}), 400
-
-    parte_existente = partes_nombre_existen(nombre_parte, codigo_parte)
-    if parte_existente:
-        return jsonify({"error": f"El nombre del polígono o el código '{parte_existente}' ya existen"}), 400
+    if codigo_postal_existe(codigo_postal):
+        return jsonify({"error": f"El código postal '{codigo_postal}' ya existe"}), 400
 
     # Validar que geojson_data tenga el formato esperado
     if 'features' not in geojson_data or not isinstance(geojson_data['features'], list):
         return jsonify({"error": "GeoJSON inválido"}), 400
-    
+
     try:
         polygons = [feature['geometry']['coordinates'] for feature in geojson_data['features']]
         multi_polygon = {"type": "MultiPolygon", "coordinates": polygons}
         multi_polygon_json = json.dumps(multi_polygon)
 
-        query = sql.SQL("INSERT INTO poligonos (nombre, geometria) VALUES (%s, ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326));")
-        execute_query(query, (nombre_del_multi_polygon, multi_polygon_json))
+        query = sql.SQL("INSERT INTO poligonos (codigo_postal, glosa, geometria) VALUES (%s, %s, ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326));")
+        execute_query(query, (codigo_postal, glosa, multi_polygon_json))
         
-        return jsonify({"message": "poligono insertado correctamente"}), 200
+        return jsonify({"message": "Polígono insertado correctamente"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -127,17 +100,17 @@ def insert_polygon():
 @app.route('/delete_polygon', methods=['DELETE'])
 def delete_polygon():
     data = request.get_json()
-    nombre = data.get('nombre').lower()
+    codigo_postal = data.get('codigo_postal')
 
-    nombre_existente = nombre_existe(nombre)
-    if not nombre_existente:
-        return jsonify({"error": f"El poligono '{nombre}' no existe"}), 400
+    codigo_postal_existente = codigo_postal_existe(codigo_postal)
+    if not codigo_postal_existente:
+        return jsonify({"error": f"El código postal '{codigo_postal}' no existe"}), 400
 
     try:
-        query = "DELETE FROM poligonos WHERE LOWER(nombre) = LOWER(%s);"
-        execute_query(query, (nombre,))
+        query = "DELETE FROM poligonos WHERE codigo_postal = %s;"
+        execute_query(query, (codigo_postal,))
         
-        return jsonify({"message": f"poligono '{nombre}' eliminado con éxito"}), 200
+        return jsonify({"message": f"Polígono con código postal '{codigo_postal}' eliminado con éxito"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -145,18 +118,18 @@ def delete_polygon():
 @app.route('/replace_polygon', methods=['PUT'])
 def replace_polygon():
     data = request.get_json()
-    nombre_del_multi_polygon = data.get('nombre').lower()
+    codigo_postal = data.get('codigo_postal')
     geojson_data = data.get('geojson_data')
 
-    if not geojson_data or not nombre_del_multi_polygon:
+    if not geojson_data or not codigo_postal:
         return jsonify({"error": "Faltan datos necesarios"}), 400
-    
-    if not validar_nombre(nombre_del_multi_polygon):
-        return jsonify({"error": "El nombre del poligono no cumple con la estructura requerida [Nombre del poligono - #######]"}), 400
 
-    nombre_existente = nombre_existe(nombre_del_multi_polygon)
-    if not nombre_existente:
-        return jsonify({"error": f"El poligono '{nombre_del_multi_polygon}' no existe"}), 400
+    if not validar_codigo_postal(codigo_postal):
+        return jsonify({"error": "El código postal debe ser numérico de 7 dígitos"}), 400
+
+    codigo_postal_existente = codigo_postal_existe(codigo_postal)
+    if not codigo_postal_existente:
+        return jsonify({"error": f"El código postal '{codigo_postal}' no existe"}), 400
 
     try:
         polygons = [feature['geometry']['coordinates'] for feature in geojson_data['features']]
@@ -166,8 +139,12 @@ def replace_polygon():
         conn = conectar_a_base_de_datos()
         cursor = conn.cursor()
         try:
-            cursor.execute("DELETE FROM poligonos WHERE LOWER(nombre) = LOWER(%s);", (nombre_del_multi_polygon,))
-            cursor.execute("INSERT INTO poligonos (nombre, geometria) VALUES (%s, ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326));", (nombre_del_multi_polygon, nueva_geometria))
+            query = """
+            UPDATE poligonos
+            SET geometria = ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)
+            WHERE codigo_postal = %s;
+            """
+            cursor.execute(query, (nueva_geometria, codigo_postal))
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -176,52 +153,90 @@ def replace_polygon():
             cursor.close()
             conn.close()
 
-        return jsonify({"message": "poligono reemplazado correctamente"}), 200
+        return jsonify({"message": "Polígono reemplazado correctamente"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
 
 @app.route('/update_polygon_name', methods=['PUT'])
 def update_polygon_name():
     data = request.get_json()
-    nombre_actual = data.get('nombre_actual').lower()
-    nuevo_nombre = data.get('nuevo_nombre').lower()
+    codigo_postal = data.get('codigo_postal')
+    nueva_glosa = data.get('nueva_glosa')
 
-    if not nombre_actual or not nuevo_nombre:
+    if not codigo_postal or not nueva_glosa:
         return jsonify({"error": "Faltan datos necesarios"}), 400
-    
-    if not validar_nombre(nuevo_nombre):
-        return jsonify({"error": "El nuevo nombre del poligono no cumple con la estructura requerida"}), 400
 
-    nombre_existente = nombre_existe(nombre_actual)
-    if not nombre_existente:
-        return jsonify({"error": f"El poligono '{nombre_actual}' no existe"}), 400
-    
-    if nombre_existe(nuevo_nombre):
-        return jsonify({"error": f"El poligono '{nuevo_nombre}' ya existe"}), 400
+    if not validar_glosa(nueva_glosa):
+        return jsonify({"error": "La nueva glosa no puede estar vacía"}), 400
 
-    nombre_parte, codigo_parte = obtener_partes_nombre(nuevo_nombre)
-    if not nombre_parte or not codigo_parte:
-        return jsonify({"error": "El nombre del poligono no cumple con la estructura requerida [Nombre del poligono - #######]"}), 400
-
-    parte_existente = partes_nombre_existen(nombre_parte, codigo_parte)
-    if parte_existente:
-        return jsonify({"error": f"El nombre del poligono o el codigo '{parte_existente}' ya existen"}), 400
+    codigo_postal_existente = codigo_postal_existe(codigo_postal)
+    if not codigo_postal_existente:
+        return jsonify({"error": f"El código postal '{codigo_postal}' no existe"}), 400
 
     try:
-        query = "UPDATE poligonos SET nombre = %s WHERE LOWER(nombre) = LOWER(%s);"
-        execute_query(query, (nuevo_nombre, nombre_actual))
+        query = "UPDATE poligonos SET glosa = %s WHERE codigo_postal = %s;"
+        execute_query(query, (nueva_glosa, codigo_postal))
         
-        return jsonify({"message": f"Nombre del poligono '{nombre_actual}' actualizado a '{nuevo_nombre}'"}), 200
+        return jsonify({"message": f"Nombre del polígono con código postal '{codigo_postal}' actualizado a '{nueva_glosa}'"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/update_codigo_postal', methods=['PUT'])
+def update_codigo_postal():
+    data = request.get_json()
+    codigo_postal_actual = data.get('codigo_postal_actual')
+    nuevo_codigo_postal = data.get('nuevo_codigo_postal')
+
+    if not codigo_postal_actual or not nuevo_codigo_postal:
+        return jsonify({"error": "Faltan datos necesarios"}), 400
+
+    if not validar_codigo_postal(codigo_postal_actual) or not validar_codigo_postal(nuevo_codigo_postal):
+        return jsonify({"error": "Ambos códigos postales deben ser numéricos de 7 dígitos"}), 400
+
+    if codigo_postal_actual == nuevo_codigo_postal:
+        return jsonify({"error": "El nuevo código postal no puede ser igual al código postal actual"}), 400
+
+    codigo_postal_existente = codigo_postal_existe(codigo_postal_actual)
+    if not codigo_postal_existente:
+        return jsonify({"error": f"El código postal actual '{codigo_postal_actual}' no existe"}), 400
+
+    nuevo_codigo_postal_existente = codigo_postal_existe(nuevo_codigo_postal)
+    if nuevo_codigo_postal_existente:
+        return jsonify({"error": f"El nuevo código postal '{nuevo_codigo_postal}' ya existe"}), 400
+
+    try:
+        conn = conectar_a_base_de_datos()
+        cursor = conn.cursor()
+        try:
+            query = """
+            UPDATE poligonos
+            SET codigo_postal = %s
+            WHERE codigo_postal = %s;
+            """
+            cursor.execute(query, (nuevo_codigo_postal, codigo_postal_actual))
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
+        return jsonify({"message": "Código postal actualizado correctamente"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/clasificar_direcciones', methods=['POST'])
 def clasificar_direcciones():
     data = request.get_json()
     coordinates = data.get('coordinates')
-    
+
     if not coordinates:
         return jsonify({"error": "No coordinates provided"}), 400
 
@@ -235,18 +250,13 @@ def clasificar_direcciones():
                 lat = coord['lat']
                 lon = coord['lon']
                 cursor.execute("""
-                SELECT nombre FROM poligonos
+                SELECT glosa, codigo_postal FROM poligonos
                 WHERE ST_Intersects(geometria, ST_SetSRID(ST_MakePoint(%s, %s), 4326));
                 """, (lon, lat))
                 result = cursor.fetchone()
                 if result:
-                    nombre_completo = result[0]
-                    partes_nombre = nombre_completo.split(' - ')
-                    if len(partes_nombre) == 2:
-                        glosa, codigo_postal = partes_nombre
-                        poligonos.append({"glosa": glosa.strip(), "codigo_postal": codigo_postal.strip()})
-                    else:
-                        poligonos.append({"glosa": "Desconocido", "codigo_postal": "Desconocido"})
+                    glosa, codigo_postal = result
+                    poligonos.append({"glosa": glosa, "codigo_postal": codigo_postal})
                 else:
                     poligonos.append({"glosa": "No clasificado", "codigo_postal": "No clasificado"})
 
@@ -258,13 +268,12 @@ def clasificar_direcciones():
         if conn:
             conn.close()
 
-
 @app.route('/get_polygons', methods=['GET'])
 def get_polygons():
     try:
         conn = conectar_a_base_de_datos()
         cursor = conn.cursor()
-        cursor.execute("SELECT nombre FROM poligonos;")
+        cursor.execute("SELECT glosa, codigo_postal FROM poligonos;")
         resultados = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -272,13 +281,12 @@ def get_polygons():
         if not resultados:
             return jsonify({"poligonos": [], "message": "No hay polígonos en la base de datos"}), 200
 
-        nombres_poligonos = [resultado[0] for resultado in resultados]
+        poligonos = [{"glosa": resultado[0], "codigo_postal": resultado[1]} for resultado in resultados]
 
-        return jsonify({"poligonos": nombres_poligonos}), 200
+        return jsonify({"poligonos": poligonos}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

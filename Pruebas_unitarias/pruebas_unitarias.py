@@ -9,8 +9,12 @@ load_dotenv('./.env')
 # Variables de configuración obtenidas del archivo .env
 API_URL = os.getenv('API_URL')
 GEOJSON_FILE = os.getenv('GEOJSON_FILE')
-NOMBRE_POLIGONO = os.getenv('NOMBRE_POLIGONO')
-NUEVO_NOMBRE_POLIGONO = os.getenv('NUEVO_NOMBRE_POLIGONO')
+GLOSA = os.getenv('GLOSA')
+CODIGO_POSTAL = os.getenv('CODIGO_POSTAL')
+NUEVA_GLOSA = os.getenv('NUEVA_GLOSA')
+NUEVO_CODIGO_POSTAL = os.getenv('NUEVO_CODIGO_POSTAL')
+
+resultados_pruebas = []
 
 def cargar_geojson(file_path):
     try:
@@ -57,8 +61,10 @@ def probar_api(descripcion, endpoint, method, data=None):
     respuesta = enviar_solicitud(API_URL, endpoint, method, data)
     if respuesta:
         print(f"Respuesta de la API: {respuesta}")
+        resultados_pruebas.append((descripcion, True))
     else:
         print("No se obtuvo una respuesta válida de la API.")
+        resultados_pruebas.append((descripcion, False))
 
 def probar_insert_polygon():
     geojson_data = cargar_geojson(GEOJSON_FILE)
@@ -67,14 +73,15 @@ def probar_insert_polygon():
 
     data = {
         "geojson_data": geojson_data,
-        "nombre": NOMBRE_POLIGONO
+        "glosa": GLOSA,
+        "codigo_postal": CODIGO_POSTAL
     }
 
     probar_api("Probando inserción de polígono", 'insert_polygon', 'POST', data)
 
-def probar_delete_polygon(nombre):
+def probar_delete_polygon(codigo_postal):
     data = {
-        "nombre": nombre
+        "codigo_postal": codigo_postal
     }
 
     probar_api("Probando eliminación de polígono", 'delete_polygon', 'DELETE', data)
@@ -86,7 +93,7 @@ def probar_replace_polygon():
 
     data = {
         "geojson_data": geojson_data,
-        "nombre": NOMBRE_POLIGONO
+        "codigo_postal": CODIGO_POSTAL
     }
 
     probar_api("Probando reemplazo de polígono", 'replace_polygon', 'PUT', data)
@@ -102,18 +109,37 @@ def probar_clasificar_direcciones():
 
 def probar_actualizar_nombre_poligono():
     data = {
-        "nombre_actual": NOMBRE_POLIGONO,
-        "nuevo_nombre": NUEVO_NOMBRE_POLIGONO
+        "codigo_postal": CODIGO_POSTAL,
+        "nueva_glosa": NUEVA_GLOSA
     }
 
     probar_api("Probando actualización de nombre de polígono", 'update_polygon_name', 'PUT', data)
 
+def probar_actualizar_codigo_postal(codigo_postal_actual, nuevo_codigo_postal):
+    data = {
+        "codigo_postal_actual": codigo_postal_actual,
+        "nuevo_codigo_postal": nuevo_codigo_postal
+    }
+
+    probar_api("Probando actualización de código postal de polígono", 'update_codigo_postal', 'PUT', data)
+
 def probar_get_polygons():
-    probar_api("Probando obtención de nombres de polígonos", 'get_polygons', 'GET')
+    probar_api("Probando obtención de polígonos", 'get_polygons', 'GET')
+
+def resumen_pruebas():
+    total_pruebas = len(resultados_pruebas)
+    pruebas_exitosas = sum(1 for _, resultado in resultados_pruebas if resultado)
+    porcentaje_exitosas = (pruebas_exitosas / total_pruebas) * 100
+    print("\nResumen de Pruebas:")
+    print(f"Total de pruebas: {total_pruebas}")
+    print(f"Pruebas exitosas: {pruebas_exitosas}")
+    print(f"Porcentaje de éxito: {porcentaje_exitosas:.2f}%")
 
 def main():
     print("-"*50)
     probar_insert_polygon()
+    print("-"*50)
+    probar_get_polygons()
     print("-"*50)
     probar_clasificar_direcciones()
     print("-"*50)
@@ -121,9 +147,11 @@ def main():
     print("-"*50)
     probar_actualizar_nombre_poligono()
     print("-"*50)
-    probar_delete_polygon(NUEVO_NOMBRE_POLIGONO)
+    probar_actualizar_codigo_postal(CODIGO_POSTAL, NUEVO_CODIGO_POSTAL)
     print("-"*50)
-    probar_get_polygons()
+    probar_delete_polygon(NUEVO_CODIGO_POSTAL)
+    print("-"*50)
+    resumen_pruebas()
     print("-"*50)
 
 if __name__ == '__main__':
