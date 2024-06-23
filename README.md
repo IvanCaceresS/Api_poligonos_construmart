@@ -32,8 +32,10 @@ Esta API permite insertar, reemplazar, eliminar polígonos y cambiar el nombre d
     ```env
     API_URL=http://xxx.xxx.xxx.xxx:5000
     GEOJSON_FILE=Iquique zona (1).geojson
-    NOMBRE_POLIGONO=Iquique Zona 1 - 1234567
-    NUEVO_NOMBRE_POLIGONO=Nuevo Iquique Zona 1 - 7654321
+    GLOSA=Iquique Zona 1
+    CODIGO_POSTAL=1234567
+    NUEVA_GLOSA=Nuevo Iquique Zona 1
+    NUEVO_CODIGO_POSTAL=7654321
     ```
 
 5. Configura tu base de datos PostgreSQL con PostGIS y la tabla necesaria:
@@ -43,7 +45,8 @@ Esta API permite insertar, reemplazar, eliminar polígonos y cambiar el nombre d
 
     CREATE TABLE IF NOT EXISTS public.poligonos
     (
-        nombre CITEXT PRIMARY KEY,
+        codigo_postal VARCHAR(7) PRIMARY KEY,
+        glosa CITEXT,
         geometria GEOMETRY(MultiPolygon, 4326)
     );
 
