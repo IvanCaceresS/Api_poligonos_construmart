@@ -64,6 +64,15 @@ def codigo_postal_existe(codigo_postal):
         if conn:
             conn.close()
 
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    # Add your logic here to determine the health status of your API
+    health_status = {
+        'status': 'ok',  # or 'error' based on your health check logic
+        'details': 'All systems are operational'
+    }
+    return jsonify(health_status)
+
 @app.route('/insert_polygon', methods=['POST'])
 def insert_polygon():
     data = request.get_json()

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Health Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        .status {
+            font-size: 2em;
+            margin-top: 20px;
+        }
+        .ok {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Health Status</h1>
+    <div id="status" class="status"></div>
+    <script>
+        fetch('/api/health')
+            .then(response => response.json())
+            .then(data => {
+                const statusDiv = document.getElementById('status');
+                if (data.status === 'ok') {
+                    statusDiv.textContent = 'All systems are operational';
+                    statusDiv.classList.add('ok');
+                } else {
+                    statusDiv.textContent = 'There are some issues';
+                    statusDiv.classList.add('error');
+                }
+            })
+            .catch(error => {
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = 'Failed to fetch the health status';
+                statusDiv.classList.add('error');
+            });
+    </script>
+</body>
+</html>
